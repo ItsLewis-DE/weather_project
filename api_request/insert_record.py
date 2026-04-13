@@ -1,18 +1,16 @@
 from api_request import mock_fetch_data
 import psycopg2
-from dotenv import load_dotenv
 import os
-load_dotenv()
 
 def connect_to_db():
     print("Connecting to database...")
     try:
         conn = psycopg2.connect(
-            host="localhost",
+            host="db",
             database="weather_project",
-            port=5433,
-            user= os.getenv("user_database"),
-            password=os.getenv("user_password")
+            port=5432,
+            user= "phongthanh",
+            password="thangkhung0993"
         )
         return conn
     except psycopg2.Error as e:
