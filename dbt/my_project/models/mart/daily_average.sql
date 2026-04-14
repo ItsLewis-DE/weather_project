@@ -1,0 +1,17 @@
+{{ config(
+    materialized='table'
+)
+}}
+
+SELECT 
+    city,
+    date(weather_time_local) as date,
+    round(avg(temperature)::numeric,2) as avg_temperature,
+    round(avg(wind_speed)::numeric,2) as avg_wind_speed
+from {{ ref('staging') }}
+GROUP BY
+    city,
+    date(weather_time_local)
+ORDER BY
+    city,
+    date(weather_time_local)
