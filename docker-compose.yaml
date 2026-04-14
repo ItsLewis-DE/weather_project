@@ -1,3 +1,10 @@
+x-superset-user: &superset-user root
+x-superset-volumes: &superset-volumes
+  # /app/pythonpath_docker will be appended to the PYTHONPATH in the final container
+  - ./docker:/app/docker
+  - ./superset:/app/superset
+  - ./docker/superset_config.py:/app/pythonpath/superset_config.py
+
 services:
     db:
         container_name: postgres_container
@@ -23,6 +30,9 @@ services:
         volumes:
             - ./airflow/dags:/opt/airflow/dags
             - ./api_request:/opt/airflow/api_request
+            - /var/run/docker.sock:/var/run/docker.sock
+        group_add:
+            - '1001'
         depends_on:
             - db
         networks:
@@ -43,6 +53,50 @@ services:
         networks:
             - my-network
         command: run
+
+    superset-init:
+        image: apache/superset:3.0.0-py310
+        command: ["/app/docker/docker-init.sh"]
+        env_file:
+        - path: docker/.env # default
+            required: true
+        depends_on:
+        db:
+            condition: service_started
+        redis:
+            condition: service_started
+        user: *superset-user
+        volumes: *superset-volumes
+        healthcheck:
+        disable: true
+    superset:
+        env_file:
+        - path: docker/.env # default
+            required: true
+        - path: docker/.env-local # optional override
+            required: false
+        build:
+        <<: *common-build
+        command: ["/app/docker/docker-bootstrap.sh", "app"]
+        restart: unless-stopped
+        ports:
+        - ${SUPERSET_PORT:-8088}:8088
+        # When in cypress-mode ->
+        - ${CYPRESS_PORT:-8081}:8081
+        extra_hosts:
+        - "host.docker.internal:host-gateway"
+        user: *superset-user
+        depends_on:
+        superset-init:
+            condition: service_completed_successfully
+        volumes: *superset-volumes
+    redis:
+        image: redis:7
+        restart: unless-stopped
+        ports:
+        - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+        volumes:
+        - redis:/data
 networks:
     my-network:
         driver: bridge
